@@ -1,0 +1,58 @@
+apiVersion: kagent.dev/v1alpha2
+kind: ModelConfig
+metadata:
+  name: {{ include "k8s-sec-agent.fullname" . }}-model
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "k8s-sec-agent.labels" . | nindent 4 }}
+spec:
+  provider: {{ .Values.agent.provider }}
+  model: {{ .Values.agent.model }}
+  apiKeySecret: {{ .Values.agent.apiKeySecret }}
+  apiKeySecretKey: {{ .Values.agent.apiKeySecretKey }}
+  openAI:
+    baseUrl: {{ include "k8s-sec-agent.proxyUrl" . | quote }}
+---
+apiVersion: kagent.dev/v1alpha2
+kind: RemoteMCPServer
+metadata:
+  name: {{ include "k8s-sec-agent.fullname" . }}-tools
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "k8s-sec-agent.labels" . | nindent 4 }}
+spec:
+  description: Kubernetes security audit tools with privacy sanitization
+  protocol: STREAMABLE_HTTP
+  url: {{ include "k8s-sec-agent.mcpUrl" . | quote }}
+---
+apiVersion: kagent.dev/v1alpha2
+kind: Agent
+metadata:
+  name: {{ include "k8s-sec-agent.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "k8s-sec-agent.labels" . | nindent 4 }}
+spec:
+  description: {{ .Values.agent.description }}
+  type: Declarative
+  declarative:
+    modelConfig: {{ include "k8s-sec-agent.fullname" . }}-model
+    systemMessage: |
+{{ .Values.agent.systemMessage | indent 6 }}
+    tools:
+      - type: McpServer
+        mcpServer:
+          kind: RemoteMCPServer
+          apiGroup: kagent.dev
+          name: {{ include "k8s-sec-agent.fullname" . }}-tools
+          namespace: {{ .Release.Namespace }}
+          toolNames:
+            {{- range .Values.agent.tools }}
+            - {{ . }}
+            {{- end }}
+          {{- with .Values.agent.requireApproval }}
+          requireApproval:
+            {{- range . }}
+            - {{ . }}
+            {{- end }}
+          {{- end }}

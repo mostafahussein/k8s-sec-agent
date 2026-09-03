@@ -1,0 +1,11 @@
+[project]
+name = "k8s_sec_agent"
+version = "3.0.0"
+description = "Kubernetes security audit agent - MCP tools + multi-tenant privacy proxy"
+requires-python = ">=3.11, <3.15"
+dependencies = [
+  "fastmcp>=2.0",
+  "fastapi",
+  "httpx",
+  "uvicorn",
+]

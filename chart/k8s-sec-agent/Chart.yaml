@@ -1,0 +1,15 @@
+apiVersion: v2
+name: k8s-sec-agent
+description: Kubernetes security audit agent for kagent for kagent
+type: application
+version: 0.1.0
+appVersion: "3.0.0"
+keywords:
+  - kubernetes
+  - cis-benchmark
+  - security
+  - kagent
+  - audit
+home: https://github.com/mostafahussein/k8s-sec-agent
+sources:
+  - https://github.com/mostafahussein/k8s-sec-agent

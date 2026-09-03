@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "k8s-sec-agent.serviceName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "k8s-sec-agent.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "k8s-sec-agent.serviceSelector" . | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.port }}

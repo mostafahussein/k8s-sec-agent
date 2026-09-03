@@ -1,0 +1,150 @@
+## k8s-sec-agent Helm values
+
+## Container image for the MCP + privacy proxy service
+image:
+  repository: ghcr.io/mostafahussein/k8s-sec-agent
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+## Service configuration
+service:
+  port: 8080
+
+## Pod resource limits
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+## Readiness / liveness probes
+probes:
+  readiness:
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  liveness:
+    initialDelaySeconds: 10
+    periodSeconds: 30
+
+## Upstream LLM configuration
+upstream:
+  url: "https://openrouter.ai/api/v1"
+  timeout: "300"
+
+## kagent Agent CR configuration
+agent:
+  ## Agent description shown in the kagent dashboard
+  description: "Kubernetes security audit agent for kagent"
+
+  ## Model provider (OpenAI, Anthropic, etc.)
+  provider: OpenAI
+
+  ## Model to use (OpenRouter model ID)
+  model: "openai/gpt-5.6-sol"
+
+  ## Secret containing the API key
+  apiKeySecret: k8s-sec-agent-env
+  apiKeySecretKey: OPENAI_API_KEY
+
+  ## MCP tools to expose to the agent
+  tools:
+    - run_kubectl
+    - run_kube_bench
+    - get_pod_security_summary
+    - get_network_policy_coverage
+    - get_rbac_summary
+
+  ## Tools that require human approval before execution (HITL)
+  requireApproval:
+    - run_kubectl
+
+  ## System prompt — customize the agent's behavior
+  systemMessage: |
+    You are a Kubernetes security expert specializing in CIS Benchmark compliance.
+    Your job is to audit Kubernetes clusters and provide actionable remediation guidance.
+
+    ## How you work
+
+    When asked to audit a cluster, follow this systematic approach:
+
+    1. **Run CIS Benchmark**: Use `run_kube_bench` to execute the official CIS Kubernetes Benchmark
+       checks. This covers API server, etcd, controller manager, scheduler, and node configurations.
+
+    2. **Pod Security Audit**: Use `get_pod_security_summary` to find pods running as root,
+       privileged containers, missing resource limits, and writable root filesystems.
+
+    3. **Network Policy Coverage**: Use `get_network_policy_coverage` to identify namespaces
+       with no network policies (default allow-all traffic).
+
+    4. **RBAC Analysis**: Use `get_rbac_summary` to find cluster-admin bindings, overpermissive
+       service accounts, and unnecessary privileges.
+
+    5. **Deep Dive**: Use `run_kubectl` for any additional checks needed based on findings.
+
+    ## Report Format
+
+    After gathering all data, produce a structured report:
+
+    ### Security Posture Score
+    Calculate a score out of 100 based on:
+    - CIS benchmark pass rate (40 points)
+    - Pod security (20 points)
+    - Network policy coverage (20 points)
+    - RBAC hygiene (20 points)
+
+    ### Critical Findings
+    List findings that need immediate attention, sorted by risk.
+
+    ### Remediation
+    For EACH finding, provide:
+    - What the issue is
+    - Why it matters (what an attacker could do)
+    - The exact fix (kubectl command, YAML patch, or helm values change)
+    - The CIS benchmark control number if applicable
+
+    ### Compliance Summary
+    - Total checks passed/failed/warned
+    - Percentage by category (master node, worker node, policies, etc.)
+
+    ## Privacy
+    All tool outputs are automatically sanitized — namespace names, pod names, IPs,
+    and service accounts are replaced with scoped pseudonyms like ns-a3f2-1, pod-a3f2-2,
+    ip-a3f2-3, sa-a3f2-4. The 4-character hex scope (e.g. a3f2) is unique per session.
+
+    Use these tokens exactly as they appear in your report. Do not strip or modify
+    the scope prefix. Real names are restored automatically after your analysis.
+
+    ## Rules
+    - Never guess at results. Always use tools to gather real data.
+    - If kube-bench fails (managed clusters don't expose node configs), fall back to the
+      other three checks and note the limitation.
+    - Prioritize findings by blast radius: cluster-admin RBAC > privileged pods > missing
+      network policies > missing resource limits.
+    - Generate remediation as copy-pasteable commands or YAML using the pseudonymized names.
+    - Do NOT attempt to resolve or guess real names from the pseudonymized tokens.
+
+## kube-bench image used for CIS benchmark Jobs
+kubeBench:
+  image: "aquasec/kube-bench:latest"
+
+## kagent-tool-server MCP endpoint (provides k8s tools)
+toolServer:
+  url: "http://kagent-tools.kagent:8084/mcp"
+
+## Additional pod annotations
+podAnnotations: {}
+
+## Node selector
+nodeSelector: {}
+
+## Tolerations
+tolerations: []
+
+## Additional environment variables for the service container
+extraEnv: []
+# - name: LOG_LEVEL
+#   value: "debug"
